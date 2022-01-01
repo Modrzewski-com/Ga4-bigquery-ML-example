@@ -1,0 +1,50 @@
+-- 1) Wyciągane danych z tabeli GA4 dotyczących liczby użytkowników w czasie
+CREATE OR REPLACE TABLE `NAZWA-PROJEKTU.NAZWA-DATASETU.number_of_users` AS
+
+SELECT PARSE_DATE('%Y%m%d',event_date) as event_date, count(distinct user_pseudo_id) as number
+FROM
+  `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`. -- Ogólno dostępna baza danych GA4 dla sklepu Google
+
+WHERE
+    event_name = 'session_start'
+GROUP BY 1
+
+-- 2) Tworzenie modelu ML i wytrenowanie go na podstawie danych z pkt. 1
+CREATE OR REPLACE MODEL NAZWA-PROJEKTU.NAZWA-DATASETU.arima_model
+
+OPTIONS(
+  MODEL_TYPE='ARIMA',
+  TIME_SERIES_TIMESTAMP_COL='event_date', 
+  TIME_SERIES_DATA_COL='number',
+  HOLIDAY_REGION='US'
+) AS
+
+SELECT 
+    event_date,
+    number
+FROM
+  NAZWA-PROJEKTU.NAZWA-DATASETU.number_of_users
+
+
+-- 3) Prognozowanie danych 30dniowych na podstawie wytrenowanego modelu
+DECLARE HORIZON STRING DEFAULT "30"; #number of values to forecast
+DECLARE CONFIDENCE_LEVEL STRING DEFAULT "0.90";
+
+EXECUTE IMMEDIATE format("""
+    CREATE OR REPLACE TABLE NAZWA-PROJEKTU.NAZWA-DATASETU.predictions AS
+    SELECT
+      *
+    FROM 
+      ML.FORECAST(MODEL NAZWA-PROJEKTU.NAZWA-DATASETU.arima_model, 
+                  STRUCT(%s AS horizon, 
+                         %s AS confidence_level)
+                 )
+    """, HORIZON, CONFIDENCE_LEVEL)
+
+-- 4) Łaczenie danych prognozowanych z historycznymi
+CREATE OR REPLACE TABLE `NAZWA-PROJEKTU.NAZWA-DATASETU.merged`  AS
+SELECT event_date, 'historic' as type, number
+ FROM `NAZWA-PROJEKTU.NAZWA-DATASETU.number_of_users` 
+UNION ALL 
+SELECT DATE(forecast_timestamp) as event_date, 'prediction' as type, ROUND(forecast_value) as number
+ FROM `NAZWA-PROJEKTU.NAZWA-DATASETU.predictions` 
