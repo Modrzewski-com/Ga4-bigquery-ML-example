@@ -1,0 +1,19 @@
+-- 1) stworzenie tabeli z danymi o sesjach (wizytach) , userach i konwersjach + do tego wskaźnik konwersji
+
+SELECT
+  traffic_source.name AS trafficSource,
+  COUNT(CASE WHEN event_name = 'session_start' THEN event_name ELSE NULL END) AS sessions,
+  count (DISTINCT user_pseudo_id) AS users,
+  count (CASE WHEN event_name ='purchase' THEN event_name ELSE NULL END) as conv
+  -- conversion rate można obliczyć już na podstawie wyników tego zapytania
+ 
+FROM
+  `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*`
+
+WHERE
+    _TABLE_SUFFIX >= '20210101'
+
+GROUP BY
+  1
+LIMIT
+  1000
