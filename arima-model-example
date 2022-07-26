@@ -1,11 +1,9 @@
 -- 1) Wyciągane danych z tabeli GA4 dotyczących liczby użytkowników w czasie
-CREATE OR REPLACE TABLE `ID-PROJEKTU
-.ml_sessions_prediction.number_of_users` AS
+CREATE OR REPLACE TABLE `ID-PROJEKTU.ml_sessions_prediction.number_of_users` AS
 
 SELECT PARSE_DATE('%Y%m%d',event_date) as event_date, count(distinct user_pseudo_id) as number
 FROM
   `bigquery-public-data.ga4_obfuscated_sample_ecommerce.events_*` -- Ogólno dostępna baza danych GA4 dla sklepu Google
-
 WHERE
     event_name = 'session_start'
 GROUP BY 1
